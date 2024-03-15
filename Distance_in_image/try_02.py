@@ -181,7 +181,7 @@ if __name__=="__main__":
     ####
     # Input parameters
     ####
-    path_photo = '/home/horakl/School/FAV/Doktorske_studium/Prace_projekty/Mechanical_testing/Python_files/Distance_in_image/ARALDIT_Al_DCB_RT_01'
+    path_photo = '/home/horakl/School/FAV/Doktorske_studium/Prace_projekty/Mechanical_testing/Python_files/Distance_in_image/Input_folder'
 
     # Get the list of all files and directories
     dir_list = os.listdir(path_photo)

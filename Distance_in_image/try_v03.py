@@ -9,10 +9,18 @@ import csv
 # import OS module
 import os
 
+import queue
+
+
+# Shared queue
+shared_q_pass = queue.Queue()
+shared_q_quit = queue.Queue()
+shared_q_next = queue.Queue()
+shared_q_back = queue.Queue()
 
 
 class PixelSelector(threading.Thread):
-    def __init__(self, args=()):
+    def __init__(self, dirt_list, path_photo, app):
         super(PixelSelector, self).__init__()
         self.selected_sx = []
         self.selected_sy = [] 
@@ -21,10 +29,18 @@ class PixelSelector(threading.Thread):
         self.output_x = []
         self.output_y = [] 
 
+
         self.first_img = False
+        
+        self.app = app
+        self.dirt_list = dirt_list
+        self.path_photo = path_photo
 
-        self._result = args 
+        #call function
 
+    def run(self):
+        while shared_q_quit.empty():
+            self.evaluate_distance(self.dirt_list, self.path_photo)
 
     def get_pixel_coordinates(self, event, x, y, flags, param):
 
@@ -58,24 +74,6 @@ class PixelSelector(threading.Thread):
 
 #            print(f"Selected pixel output coordinates: [{self.selected_x}, {self.selected_y}]")
 
-    def get_middle_pixel(self):
-        if len(self.selected_x) == 2:
-
-            x1 = self.selected_x[0]
-            x2 = self.selected_x[1]
-            y1 = self.selected_y[0]
-            y2 = self.selected_y[1]
-        
-            x = (x2-x1)/2 + x1
-            y = (y2-y1)/2 + y1
-
-            self.output_x.append(x) 
-            self.output_y.append(y)
-
-            image[int(y), int(x)] = [0, 255, 0]  # Color the pixel green
-
-            cv2.imshow('Select Pixel', image)
-            print(f"middle coardinates: {x} {y}")
 
 
     def select_pixel(self, image_path):
@@ -90,21 +88,31 @@ class PixelSelector(threading.Thread):
         if self.first_img == False:
             #This function with first image and setting scale
             while len(self.selected_x) < 2: 
-                if cv2.waitKey(1) & 0xFF == ord('q'):
+                if cv2.waitKey(1) & 0xFF == ord('q') or (not shared_q_quit.empty()):
                     break
-                elif cv2.waitKey(1) & 0xFF == ord('p') and self.first_img == False:
+                elif (cv2.waitKey(1) & 0xFF == ord('n') and self.first_img == False) or ( not shared_q_next.empty()):
+                    if not shared_q_next.empty():
+                        shared_q_next.get()
                     return self.selected_sx, self.selected_sy, None, None
                 elif len(self.output_x) == 2:
                     return self.selected_sx, self.selected_sy, self.output_x, self.output_y                
+                elif not shared_q_next.empty():
+                    print('rajska')
+                    shared_q_next.get()
+
 
         else:
             #This while loop functions with update of middle pixel
             while len(self.selected_x) < 2 or self.first_img == False:
                 if cv2.waitKey(1) & 0xFF == ord('q'):
                     break
-                elif cv2.waitKey(1) & 0xFF == ord('p') and self.first_img == False:
+                elif (cv2.waitKey(1) & 0xFF == ord('n') and self.first_img == False) or ( not shared_q_next.empty()):
+                    if not shared_q_next.empty():
+                        shared_q_next.get()
                     return self.selected_sx, self.selected_sy, None, None
-                elif cv2.waitKey(1) & 0xFF == ord('p') and self.first_img == True:
+                elif (cv2.waitKey(1) & 0xFF == ord('p') and self.first_img == True) or ( not shared_q_pass.empty()):
+                    if not shared_q_pass.empty():
+                        shared_q_pass.get()
                     return None, None, None, None                
                 elif len(self.output_x) == 2:
                     return self.selected_sx, self.selected_sy, self.output_x, self.output_y                
@@ -127,54 +135,141 @@ class PixelSelector(threading.Thread):
         self.output_x = []
         self.output_y = [] 
 
+    def get_middle_pixel(self):
+        if len(self.selected_x) == 2:
 
-class Instruction:
+            x1 = self.selected_x[0]
+            x2 = self.selected_x[1]
+            y1 = self.selected_y[0]
+            y2 = self.selected_y[1]
+        
+            x = (x2-x1)/2 + x1
+            y = (y2-y1)/2 + y1
+
+            self.output_x.append(x) 
+            self.output_y.append(y)
+
+            image[int(y), int(x)] = [0, 255, 0]  # Color the pixel green
+
+            cv2.imshow('Select Pixel', image)
+            print(f"middle coardinates: {x} {y}")
+
+
+    def evaluate_distance(self, dirt_list, path_photo):
+
+        for counter, file_name in enumerate(dir_list):
     
-    def __init__(self):
-        self.selected_x = False 
-        self.selected_y = False 
-
-    def show_instructions(self):
-        root = tk.Tk()
-        root.title("Instructions")
+            file_path_name = path_photo + '/' + file_name
     
-        tk.Label(root, text="Instructions:").pack()
-    
-        check_var_1 = tk.IntVar()
-
-        tk.Checkbutton(root, text="someting", variable = check_var_1, state='disabled').pack()
-        tk.Checkbutton(root, text="else", state='disabled').pack()
-
-
-        root.mainloop()
+            # Call select_pixel method to select a pixel on the image
+            selected_sx, selected_sy, output_x, output_y = self.select_pixel(file_path_name)
     
     
-    def update_checkboxes(self):
-        step1_text = "Step 1: Select the first pixel"
-        step2_text = "Step 2: Select the second pixel"
+            self.reset_values()
+            if counter == 0:
+                self.set_first_img()
+            
+                scale_x1 = selected_sx[0]
+                scale_x2 = selected_sx[1]
+                scale_y1 = selected_sy[0]
+                scale_y2 = selected_sy[1]
+                
+                scale_pixel_dist = np.sqrt((scale_x1 - scale_x2) ** 2 + (scale_y1 - scale_y2) ** 2)
     
-        if len(selected_x) >= 1:
-            x1 = selected_x[0]
-            y1 = selected_y[0]
-            step1_text = f"Step 1: Selected Pixel - ({x1}, {y1})"
+                print(f"Scale value was set as {scale_value} mm")
+                print(f"Pixel scale was computed as {scale_pixel_dist} divided by scale value")
+        
+                self.app.pixel_scale.set(self.app.pixel_scale.get() + ' = ' + str(scale_pixel_dist) + ' px')
+                self.app.check_var_1.set(1)
+        
+            if output_x == None:
+                distance_ = 0
+            else:
+            
+                x1 = output_x[0]
+                x2 = output_x[1]
+                y1 = output_y[0]
+                y2 = output_y[1]
+            
+                pixel_distance = np.sqrt((x1 - x2) ** 2 + (y1 - y2) ** 2)
+            
+                distance_ = pixel_distance* (scale_value/scale_pixel_dist)
     
-        if len(selected_x) == 2:
-            x2 = selected_x[1]
-            y2 = selected_y[1]
-            step2_text = f"Step 2: Selected Pixel - ({x2}, {y2})"
+                
+            print(f'Distance between selected points: {distance_} mm. Evaluated {file_name}. {counter}{len(dir_list)}')
+        
+            path = '/home/horakl/School/FAV/Doktorske_studium/Prace_projekty/Mechanical_testing/Python_files/Distance_in_image'
+            name_file = '/output.csv'
+        
+            path_name = path + name_file
+            header = ['name', 'distance']
+        
+            # open the file in the write mode
+            with open(path_name, 'a') as f:
+                # create the csv writer
+                writer = csv.writer(f)
+        
+                if counter == 0:
+                    # write the header
+                    writer.writerow(header)
+        
+                # write a row to the csv file
+                writer.writerow([distance_, file_name])
 
 
-class MyTkApp(threading.Thread):
-    def __init__(self, args=()):
-        self.root=args
-        self.s = tk.StringVar()
-        self.s.set('Foo')
-        l = tk.Label(self.root,textvariable=self.s)
-        l.pack()
-        threading.Thread.__init__(self)
 
-    def run(self):
-        self.root.mainloop()
+
+
+class Application(tk.Frame):
+    def __init__(self, root=()):
+        super().__init__(root)
+        self.root = root 
+        self.pack()
+        self.check_var_1 = tk.IntVar()
+        self.check_var_2 = tk.IntVar()
+        self.check_var_3 = tk.IntVar()
+
+        self.pixel_scale = tk.StringVar() 
+        self.create_widgets()
+
+    def create_widgets(self):
+        self.root.title('Pixel Selector Instructions')
+
+        self.pixel_scale.set('Scale value was set: 10 mm')
+
+        tk.Checkbutton(self.root, text="1# Select pixels for scale", variable = self.check_var_1, state='disabled').pack()
+
+        var = tk.StringVar()
+        label = tk.Label( self.root, textvariable=self.pixel_scale)
+        label.pack()
+
+        tk.Checkbutton(self.root, text="2# Selct pixels on adherends where initial delamination was marked", variable = self.check_var_2, state='disabled').pack()
+        tk.Checkbutton(self.root, text="3# Selct pixel in the end of the crack", variable = self.check_var_3, state='disabled').pack()
+
+        self.quit_button = tk.Button(self.root, text="Pass (p)", fg="black",
+                              command=self.on_pass_button_click)
+        self.quit_button.pack(side="left")
+        self.quit_button = tk.Button(self.root, text="Next (n)", fg="blue",
+                              command=self.on_next_button_click)
+        self.quit_button.pack(side="left")
+        self.quit_button = tk.Button(self.root, text="Back (b)", fg="blue",
+                              command=self.on_back_button_click)
+        self.quit_button.pack(side="left")
+        self.quit_button = tk.Button(self.root, text="Quit (q)", fg="red",
+                              command=self.on_quit_button_click)
+        self.quit_button.pack(side="left")
+
+    def on_pass_button_click(self):
+        shared_q_pass.put(True)
+    def on_next_button_click(self):
+        shared_q_next.put(True)
+    def on_back_button_click(self):
+        shared_q_back.put(True)
+
+    def on_quit_button_click(self):
+        shared_q_quit.put("Quit")
+        self.root.quit()
+        self.root.destroy()
 
 
 
@@ -185,86 +280,30 @@ if __name__=="__main__":
     ####
     # Input parameters
     ####
-    path_photo = '/home/horakl/School/FAV/Doktorske_studium/Prace_projekty/Mechanical_testing/Python_files/Distance_in_image/ARALDIT_C_DCB_RT_01'
+    path_photo = '/home/horakl/School/FAV/Doktorske_studium/Prace_projekty/Mechanical_testing/Python_files/Distance_in_image/Input_folder'
 
     # scale value
     scale_value = 10 # in mm
+
+
 
     # Get the list of all files and directories
     dir_list = os.listdir(path_photo)
     print(dir_list)
 
-    # Create an instance of Instructions 
-    instructions = Instruction()
 
-    thread_pixel = PixelSelector(args=('adjlkjfldworld!')) 
+    root = tk.Tk()
+    instruction_widget = Application(root=root)
+    thread_pixel = PixelSelector(dir_list, path_photo, instruction_widget) 
+
+    # First is started the pixel selector in thread. Then instruction widget is started in main loop.
     thread_pixel.start() 
-
-
-    # Show instructions pop-up window in a separate thread
-    instructions_thread = threading.Thread(target=instructions.show_instructions)
-    instructions_thread.start()
-
-
-
-    for counter, file_name in enumerate(dir_list):
-
-        file_path_name = path_photo + '/' + file_name
-
-        # Call select_pixel method to select a pixel on the image
-#        selected_sx, selected_sy, output_x, output_y = pixel_selector.select_pixel(file_path_name)
-
-        selected_sx, selected_sy, output_x, output_y = thread_pixel.select_pixel(file_path_name)
-
-
-        thread_pixel.reset_values()
-        if counter == 0:
-            thread_pixel.set_first_img()
-        
-            scale_x1 = selected_sx[0]
-            scale_x2 = selected_sx[1]
-            scale_y1 = selected_sy[0]
-            scale_y2 = selected_sy[1]
-            
-            scale_pixel_dist = np.sqrt((scale_x1 - scale_x2) ** 2 + (scale_y1 - scale_y2) ** 2)
-
-            print(f"Scale value was set as {scale_value} mm")
-            print(f"Pixel scale was computed as {scale_pixel_dist} divided by scale value")
-    
-    
-    
-        if output_x == None:
-            distance_ = 0
-        else:
-        
-            x1 = output_x[0]
-            x2 = output_x[1]
-            y1 = output_y[0]
-            y2 = output_y[1]
-        
-            pixel_distance = np.sqrt((x1 - x2) ** 2 + (y1 - y2) ** 2)
-        
-            distance_ = pixel_distance* (scale_value/scale_pixel_dist)
-
-            
-        print(f"Distance between selected points: {distance_} mm. Evaluated {file_name}. [{counter}/{len{dir_list}]")
-    
-        path = '/home/horakl/School/FAV/Doktorske_studium/Prace_projekty/Mechanical_testing/Python_files/Distance_in_image'
-        name_file = '/output.csv'
-    
-        path_name = path + name_file
-        header = ['name', 'distance']
-    
-        # open the file in the write mode
-        with open(path_name, 'a') as f:
-            # create the csv writer
-            writer = csv.writer(f)
-    
-            if counter == 0:
-                # write the header
-                writer.writerow(header)
-    
-            # write a row to the csv file
-            writer.writerow([distance_, file_name])
+    instruction_widget.mainloop()  # Start the GUI thread
 
     
+
+
+
+
+
+
