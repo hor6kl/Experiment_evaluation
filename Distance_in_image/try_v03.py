@@ -1,3 +1,26 @@
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+# Author: horakl
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+#   Inputs:
+#           path_photo  - path to folder where all images are loaded 
+#           scale_value - float value which corresponds with scale which is choosen in first step
+#           output_path - path where to output csv file with all values
+#
+#   Outputs:
+#           output.csv - file with all measurements and names of images
+#
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+#   Description:
+#           Script loads all images in specified folder one by one images are loaded.
+#           1. Step is to choose scale. Two pixels are selected for this reason. After selection it is possilbe to Pass (P) or continue with selection and then press Next (N).
+#           2. Next steps are without selecting scale. Select two pixels between them middle pixel is created and then select last pixel. Distance is computed between midlle pixel and last selected pixel.
+#           3. Step 2. is repeated for every image in folder.
+#
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+#   Improvements:
+#           Back functions only for scale and first pixel in step 2.
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
 import cv2
 import numpy as np
 import tkinter as tk
@@ -20,7 +43,7 @@ shared_q_back = queue.Queue()
 
 
 class PixelSelector(threading.Thread):
-    def __init__(self, dirt_list, path_photo, app):
+    def __init__(self, dirt_list, path_photo, app, output_path):
         super(PixelSelector, self).__init__()
         self.selected_sx = []
         self.selected_sy = [] 
@@ -29,25 +52,40 @@ class PixelSelector(threading.Thread):
         self.output_x = []
         self.output_y = [] 
 
+        self.history = {'BGR': [], 'pos': []}
 
         self.first_img = False
         
         self.app = app
         self.dirt_list = dirt_list
+        self.output_path = output_path
         self.path_photo = path_photo
 
-        #call function
-
+    #call function
     def run(self):
-        while shared_q_quit.empty():
-            self.evaluate_distance(self.dirt_list, self.path_photo)
+        self.evaluate_distance(self.dirt_list, self.path_photo)
 
-    def get_pixel_coordinates(self, event, x, y, flags, param):
+    def get_color_array(self, y: 'position in y direction', x: 'position in x direction') -> list[int,int,int]:
+        B = image[y,x,0]
+        G = image[y,x,1]
+        R = image[y,x,2]
+        color = [B,G,R]
+
+        return color
+
+
+    def get_pixel_coordinates(self, event, x, y, flags, param) -> None:
 
         # setting scale 
         if event == cv2.EVENT_LBUTTONDOWN and len(self.selected_sx) < 2:
             self.selected_sx.append(x)
             self.selected_sy.append(y)
+
+            color = self.get_color_array(y,x)
+            self.history['BGR'].append(color)
+            self.history['pos'].append([x,y])
+
+            print(self.history)
 
             image[y, x] = [255,0,0]
             cv2.imshow('Select Pixel', image)
@@ -59,8 +97,13 @@ class PixelSelector(threading.Thread):
             self.selected_x.append(x)
             self.selected_y.append(y)
 
+            color = self.get_color_array(y,x)
+            self.history['BGR'].append(color)
+            self.history['pos'].append([x,y])
+
             image[y, x] = [255,0,0]
             cv2.imshow('Select Pixel', image)
+
 
 #            print(f"Selected pixel coordinates: [{self.selected_x}, {self.selected_y}]")
 #            print(f"value of first img {self.first_img}")
@@ -69,10 +112,15 @@ class PixelSelector(threading.Thread):
             self.output_x.append(x)
             self.output_y.append(y)
 
+            color = self.get_color_array(y,x)
+            self.history['BGR'].append(color)
+            self.history['pos'].append([x,y])
+
             image[y, x] = [255,0,0]
             cv2.imshow('Select Pixel', image)
 
-#            print(f"Selected pixel output coordinates: [{self.selected_x}, {self.selected_y}]")
+
+            self.app.check_var_3.set(1)
 
 
 
@@ -85,37 +133,51 @@ class PixelSelector(threading.Thread):
         cv2.setMouseCallback('Select Pixel', self.get_pixel_coordinates)
 
 
+        # This part of code would be good to re-do....
         if self.first_img == False:
             #This function with first image and setting scale
             while len(self.selected_x) < 2: 
                 if cv2.waitKey(1) & 0xFF == ord('q') or (not shared_q_quit.empty()):
+                    print("break_q")
                     break
+                elif (cv2.waitKey(1) & 0xFF == ord('p') and self.first_img == False) or ( not shared_q_pass.empty()):
+                    print("pass1")
+                    if not shared_q_pass.empty():
+                        shared_q_pass.get()
+                    return self.selected_sx, self.selected_sy, None, None
                 elif (cv2.waitKey(1) & 0xFF == ord('n') and self.first_img == False) or ( not shared_q_next.empty()):
+                    print("next1")
                     if not shared_q_next.empty():
                         shared_q_next.get()
-                    return self.selected_sx, self.selected_sy, None, None
-                elif len(self.output_x) == 2:
-                    return self.selected_sx, self.selected_sy, self.output_x, self.output_y                
-                elif not shared_q_next.empty():
-                    print('rajska')
-                    shared_q_next.get()
+                    return self.selected_sx, self.selected_sy, self.output_x, self.output_y
+                elif (cv2.waitKey(1) & 0xFF == ord('b') and self.first_img == False) or ( not shared_q_back.empty()):
+                    print("back1")
+                    self.history_recall()
+                    if not shared_q_back.empty():
+                        shared_q_back.get()
+                    continue 
 
 
         else:
             #This while loop functions with update of middle pixel
+            #This while loop does not work with back functionality because after reaching len(selected_x) == 2 while loop is closed
             while len(self.selected_x) < 2 or self.first_img == False:
-                if cv2.waitKey(1) & 0xFF == ord('q'):
+            #while True: 
+                if (cv2.waitKey(1) & 0xFF == ord('q')) or (not shared_q_quit.empty()):
                     break
                 elif (cv2.waitKey(1) & 0xFF == ord('n') and self.first_img == False) or ( not shared_q_next.empty()):
                     if not shared_q_next.empty():
                         shared_q_next.get()
-                    return self.selected_sx, self.selected_sy, None, None
+                    return self.selected_sx, self.selected_sy, None, None 
                 elif (cv2.waitKey(1) & 0xFF == ord('p') and self.first_img == True) or ( not shared_q_pass.empty()):
                     if not shared_q_pass.empty():
                         shared_q_pass.get()
                     return None, None, None, None                
-                elif len(self.output_x) == 2:
-                    return self.selected_sx, self.selected_sy, self.output_x, self.output_y                
+                elif (cv2.waitKey(1) & 0xFF == ord('b') and self.first_img == False) or ( not shared_q_back.empty()):
+                    self.history_recall()
+                    if not shared_q_back.empty():
+                        shared_q_back.get()
+                    continue 
 
 
         self.get_middle_pixel()
@@ -123,17 +185,56 @@ class PixelSelector(threading.Thread):
         cv2.waitKey(0)
 
         cv2.destroyAllWindows()
+
         return self.selected_sx, self.selected_sy, self.output_x, self.output_y
 
+    def history_recall(self):
+        
+        try:
+            print(self.history)
+            position = self.history['pos'].pop()
+            color = self.history['BGR'].pop()
+            image[position[1], position[0]] = color 
+            cv2.imshow('Select Pixel', image)
+
+            print(position)
+            print(color)
+
+            if self.first_img == True:
+                if len(self.selected_x) == 2:
+                    self.selected_x.pop()
+                    self.selected_y.pop()
+                    self.output_x.pop()
+                    self.output_x.pop()
+                elif len(self.selected_x) < 2:
+                    self.selected_x.pop()
+                    self.selected_y.pop()
+                elif len(self.output_x) == 2:
+                    self.output_x.pop()
+                    self.output_x.pop()
+    
+            else:
+                self.selected_sx.pop()
+                self.selected_sy.pop()
+
+            print("Back function executed.")
+
+
+        except:
+            print("Maximum number of back opperations reached!")
+
+        cv2.imshow('Select Pixel', image)
 
     def set_first_img(self):
         self.first_img = True 
 
     def reset_values(self):
-        self.selected_x = []
-        self.selected_y = [] 
-        self.output_x = []
-        self.output_y = [] 
+        self.selected_x.clear()
+        self.selected_y.clear() 
+        self.output_x.clear()
+        self.output_y.clear() 
+        self.app.check_var_2.set(0)
+        self.app.check_var_3.set(0)
 
     def get_middle_pixel(self):
         if len(self.selected_x) == 2:
@@ -149,10 +250,15 @@ class PixelSelector(threading.Thread):
             self.output_x.append(x) 
             self.output_y.append(y)
 
+            color = image[int(y),int(x)]
+            self.history['BGR'].append(color)
+            self.history['pos'].append([x,y])
+
             image[int(y), int(x)] = [0, 255, 0]  # Color the pixel green
 
             cv2.imshow('Select Pixel', image)
             print(f"middle coardinates: {x} {y}")
+            self.app.check_var_2.set(1)
 
 
     def evaluate_distance(self, dirt_list, path_photo):
@@ -165,7 +271,6 @@ class PixelSelector(threading.Thread):
             selected_sx, selected_sy, output_x, output_y = self.select_pixel(file_path_name)
     
     
-            self.reset_values()
             if counter == 0:
                 self.set_first_img()
             
@@ -182,6 +287,7 @@ class PixelSelector(threading.Thread):
                 self.app.pixel_scale.set(self.app.pixel_scale.get() + ' = ' + str(scale_pixel_dist) + ' px')
                 self.app.check_var_1.set(1)
         
+            print("gkjsfkljs", output_x)
             if output_x == None:
                 distance_ = 0
             else:
@@ -196,12 +302,11 @@ class PixelSelector(threading.Thread):
                 distance_ = pixel_distance* (scale_value/scale_pixel_dist)
     
                 
-            print(f'Distance between selected points: {distance_} mm. Evaluated {file_name}. {counter}{len(dir_list)}')
+            print(f'Distance between selected points: {distance_} mm. Evaluated {file_name}. {counter+1}/{len(dir_list)}')
         
-            path = '/home/horakl/School/FAV/Doktorske_studium/Prace_projekty/Mechanical_testing/Python_files/Distance_in_image'
             name_file = '/output.csv'
         
-            path_name = path + name_file
+            path_name = self.output_path + name_file
             header = ['name', 'distance']
         
             # open the file in the write mode
@@ -217,6 +322,7 @@ class PixelSelector(threading.Thread):
                 writer.writerow([distance_, file_name])
 
 
+            self.reset_values()
 
 
 
@@ -282,6 +388,7 @@ if __name__=="__main__":
     ####
     path_photo = '/home/horakl/School/FAV/Doktorske_studium/Prace_projekty/Mechanical_testing/Python_files/Distance_in_image/Input_folder'
 
+    output_path = '/home/horakl/School/FAV/Doktorske_studium/Prace_projekty/Mechanical_testing/Python_files/Distance_in_image'
     # scale value
     scale_value = 10 # in mm
 
@@ -294,7 +401,7 @@ if __name__=="__main__":
 
     root = tk.Tk()
     instruction_widget = Application(root=root)
-    thread_pixel = PixelSelector(dir_list, path_photo, instruction_widget) 
+    thread_pixel = PixelSelector(dir_list, path_photo, instruction_widget, output_path) 
 
     # First is started the pixel selector in thread. Then instruction widget is started in main loop.
     thread_pixel.start() 
