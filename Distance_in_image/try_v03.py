@@ -18,7 +18,10 @@
 #
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 #   Improvements:
-#           Back functions only for scale and first pixel in step 2.
+#           Add functionality to choose if middle pixel should be created or not
+#           Check button to choose between ENF/DCB
+#           Pop up help where functionality of every key in every scenario
+#           Proper close of model when all images are evaluated and proper quit without erro
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 import cv2
@@ -131,87 +134,91 @@ class PixelSelector(threading.Thread):
         cv2.resizeWindow('Select Pixel', 800, 600)  # Resize the window
         cv2.imshow('Select Pixel', image)
         cv2.setMouseCallback('Select Pixel', self.get_pixel_coordinates)
+        
 
 
         # This part of code would be good to re-do....
         if self.first_img == False:
             #This function with first image and setting scale
             while len(self.selected_x) < 2: 
-                if cv2.waitKey(1) & 0xFF == ord('q') or (not shared_q_quit.empty()):
-                    print("break_q")
+                keypress = cv2.waitKey(1)
+                if keypress & 0xFF == ord('q') or (not shared_q_quit.empty()):
                     break
-                elif (cv2.waitKey(1) & 0xFF == ord('p') and self.first_img == False) or ( not shared_q_pass.empty()):
-                    print("pass1")
+                elif keypress & 0xFF == ord('p') or ( not shared_q_pass.empty()):
                     if not shared_q_pass.empty():
                         shared_q_pass.get()
                     return self.selected_sx, self.selected_sy, None, None
-                elif (cv2.waitKey(1) & 0xFF == ord('n') and self.first_img == False) or ( not shared_q_next.empty()):
+                elif keypress & 0xFF == ord('n') or ( not shared_q_next.empty()):
                     print("next1")
                     if not shared_q_next.empty():
                         shared_q_next.get()
                     return self.selected_sx, self.selected_sy, self.output_x, self.output_y
-                elif (cv2.waitKey(1) & 0xFF == ord('b') and self.first_img == False) or ( not shared_q_back.empty()):
+                elif keypress & 0xFF == ord('b') or ( not shared_q_back.empty()):
                     print("back1")
                     self.history_recall()
                     if not shared_q_back.empty():
                         shared_q_back.get()
                     continue 
+                if len(self.selected_x) == 2 and len(self.output_x) == 0:
+                    self.get_middle_pixel()
+                    cv2.imshow('Select Pixel', image)
 
 
         else:
             #This while loop functions with update of middle pixel
-            #This while loop does not work with back functionality because after reaching len(selected_x) == 2 while loop is closed
-            while len(self.selected_x) < 2 or self.first_img == False:
-            #while True: 
-                if (cv2.waitKey(1) & 0xFF == ord('q')) or (not shared_q_quit.empty()):
+            while True: 
+                keypress = cv2.waitKey(1)
+                if keypress & 0xFF == ord('q') or (not shared_q_quit.empty()):
                     break
-                elif (cv2.waitKey(1) & 0xFF == ord('n') and self.first_img == False) or ( not shared_q_next.empty()):
+                elif keypress & 0xFF == ord('n') or ( not shared_q_next.empty()):
                     if not shared_q_next.empty():
                         shared_q_next.get()
-                    return self.selected_sx, self.selected_sy, None, None 
-                elif (cv2.waitKey(1) & 0xFF == ord('p') and self.first_img == True) or ( not shared_q_pass.empty()):
+                    return self.selected_sx, self.selected_sy, self.output_x, self.output_y 
+                elif keypress & 0xFF == ord('p') or ( not shared_q_pass.empty()):
                     if not shared_q_pass.empty():
                         shared_q_pass.get()
                     return None, None, None, None                
-                elif (cv2.waitKey(1) & 0xFF == ord('b') and self.first_img == False) or ( not shared_q_back.empty()):
+                elif keypress & 0xFF == ord('b') or ( not shared_q_back.empty()):
                     self.history_recall()
                     if not shared_q_back.empty():
                         shared_q_back.get()
                     continue 
+                if len(self.selected_x) == 2 and len(self.output_x) == 0:
+                    self.get_middle_pixel()
+                    cv2.imshow('Select Pixel', image)
 
 
-        self.get_middle_pixel()
-        cv2.imshow('Select Pixel', image)
-        cv2.waitKey(0)
-
-        cv2.destroyAllWindows()
-
-        return self.selected_sx, self.selected_sy, self.output_x, self.output_y
-
-    def history_recall(self):
+    def history_recall(self) -> None:
+    # Function is retrieving values from history dictionary and deleting values from list with cooarinates
         
         try:
-            print(self.history)
             position = self.history['pos'].pop()
             color = self.history['BGR'].pop()
             image[position[1], position[0]] = color 
             cv2.imshow('Select Pixel', image)
 
-            print(position)
-            print(color)
 
-            if self.first_img == True:
-                if len(self.selected_x) == 2:
+            if self.first_img:
+                if len(self.selected_x) == 2 and len(self.output_x) < 2:
+                    position = self.history['pos'].pop()
+                    color = self.history['BGR'].pop()
+                    image[position[1], position[0]] = color 
+
                     self.selected_x.pop()
                     self.selected_y.pop()
                     self.output_x.pop()
-                    self.output_x.pop()
+                    self.output_y.pop()
+
+                    # Unchecking check box for step 2
+                    self.app.check_var_2.set(0)
                 elif len(self.selected_x) < 2:
                     self.selected_x.pop()
                     self.selected_y.pop()
                 elif len(self.output_x) == 2:
                     self.output_x.pop()
-                    self.output_x.pop()
+                    self.output_y.pop()
+                    # Unchecking check box for step 3
+                    self.app.check_var_3.set(0)
     
             else:
                 self.selected_sx.pop()
@@ -247,14 +254,17 @@ class PixelSelector(threading.Thread):
             x = (x2-x1)/2 + x1
             y = (y2-y1)/2 + y1
 
+            x = int(x)
+            y = int(y)
+
             self.output_x.append(x) 
             self.output_y.append(y)
 
-            color = image[int(y),int(x)]
+            color = self.get_color_array(y,x)
             self.history['BGR'].append(color)
             self.history['pos'].append([x,y])
 
-            image[int(y), int(x)] = [0, 255, 0]  # Color the pixel green
+            image[y, x] = [0, 255, 0]  # Color the pixel green
 
             cv2.imshow('Select Pixel', image)
             print(f"middle coardinates: {x} {y}")
