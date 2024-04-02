@@ -37,8 +37,8 @@ def graf_Feps(F, epsilon, name_TAR, color_set, marker_set, line_set, path_fig):
 
     plt.plot(epsilon[epsi_value], F_average, color='green')
 
-    plt.xlabel('Displacement $\delta$ [mm]')
-    plt.ylabel('Force $P$ [N]')
+    plt.xlabel(r'Displacement $\delta$ [mm]')
+    plt.ylabel(r'Force $P$ [N]')
 
 # =============================================================================
 #     name_TAR.append("DCB výsledná křivka")
@@ -58,12 +58,11 @@ def graf_Feps(F, epsilon, name_TAR, color_set, marker_set, line_set, path_fig):
 
 def graf_Feps_R_curves(F: [[]], epsilon, name_TAR, color_set, marker_set, line_set, path_fig):
 
-
-    # Convering from mm to m
+    # Converting from mm to m
     dimensions = 1e-3 
     range_x0 = 30*dimensions
-    range_x1 = 60*dimensions
-    range_x2 = 90*dimensions
+    range_x1 = 70*dimensions
+    range_x2 = 150*dimensions
     
     fig = plt.figure()
     ax = fig.add_subplot(111)
@@ -71,26 +70,26 @@ def graf_Feps_R_curves(F: [[]], epsilon, name_TAR, color_set, marker_set, line_s
     y_average = 0
     counter = 0
 
-    print(color_set)
+    print("color set", color_set)
 
     # This calucate the average value after stabilization of values
     for cons in range(0, len(F)):
         for i in range(0, len(epsilon[cons])):
-            epsilon[cons][i] = epsilon[cons][i]
+#            epsilon[cons][i] = epsilon[cons][i]
             if epsilon[cons][i] > range_x1:
                 y_average += F[cons][i]
                 counter += 1
 
+    # plot all R curves
     for cons in range(0, len(F)):
-        plt.plot(epsilon[cons], F[cons], color=color_set[cons],
-                marker=marker_set[cons], linestyle=line_set[cons])
+        plt.plot(epsilon[cons], F[cons], color=color_set[cons], marker=marker_set[cons], linestyle=line_set[cons])
 
     # nacteni prumerovane funkce
     
 # =============================================================================
 #     mean_x_axis = [i for i in range(max(epsilon))]
 # =============================================================================
-    mean_x_axis = np.linspace(range_x0, range_x1, 200)
+    mean_x_axis = np.linspace(range_x0, range_x2, 200)
     ys_interp = [np.interp(mean_x_axis, epsilon[i], F[i]) for i in range(len(epsilon))]
     mean_y_axis = np.mean(ys_interp, axis=0)
 
@@ -107,8 +106,8 @@ def graf_Feps_R_curves(F: [[]], epsilon, name_TAR, color_set, marker_set, line_s
 #     pl.plot(epsilon[epsi_value], F_average, color='green')
 # =============================================================================
 
-    plt.xlabel('Delamination legth $a$ [mm]')
-    plt.ylabel('Fracture toughness $G_I$ [J$m^{-2}$]')
+    plt.xlabel(r'Delamination legth $a$ [m]')
+    plt.ylabel(r'Fracture toughness $G_I$ [J$m^{-2}$]')
 
 # =============================================================================
 #     name_TAR.append("DCB výsledná křivka")
@@ -121,13 +120,13 @@ def graf_Feps_R_curves(F: [[]], epsilon, name_TAR, color_set, marker_set, line_s
     path_fig_png = path_fig + ".png"
     path_fig_eps = path_fig + ".eps"
 
-    plt.plot([range_x1, range_x2], [y_average/counter, y_average/counter],
-            linewidth=3, color='k', linestyle='--')
+    plt.plot([range_x1, range_x2], [y_average/counter, y_average/counter], linewidth=3, color='k', linestyle='--')
     print("graf_Feps_R vytvoren graf")
     print(y_average/counter)
 
     fig.savefig(path_fig_eps)
     fig.savefig(path_fig_png)
+
 
 
 # -------------------- TAR
@@ -245,24 +244,54 @@ def vypocet_energie_DCB(F, a, epsilon_n):
 
 # ----------------------------------------
 
-
-def vypocet_energie_DCB_R(Force: float, a: 'class', epsilon_n, delam_R: float, Displ: [], delta: float) -> float:
+def vypocet_energie_DCB_R_MBT(Force: float, a: 'class', delam_R: float, Displ: [], delta: float) -> float:
 
     B_index = a.data_name.index('B')
     ai_index = a.data_name.index('ai')
 
     B = float(a.data_value[B_index])*float(a.data_dimension[B_index])  # sirka vzorku
-
-    # non ahezive od osy zatizeni
-    a_del = float(delam_R)*float(a.data_dimension[ai_index])
-
-    delta = 0   
+    
+    # delamination length
+    a_del = delam_R
 
     deltaC = float(Displ)
 
     defor_energ = (3*Force*deltaC)/(2*B*(a_del+delta))
 
-    # kontorola
+
+    return defor_energ
+
+# ----------------------------------------
+
+def vypocet_energie_DCB_R_CC(Force: float, a: 'class', delam_R: float, Displ: [], n: float) -> float:
+
+    B_index = a.data_name.index('B')
+
+    B = float(a.data_value[B_index])*float(a.data_dimension[B_index])  # sirka vzorku
+    
+    # delamination length
+    a_del = delam_R
+
+    deltaC = float(Displ)
+
+    defor_energ = (n*Force*deltaC)/(2*B*a_del)
+
+
+    return defor_energ
+
+# ----------------------------------------
+
+def vypocet_energie_DCB_R_MCC(Force: float, a: 'class', delam_R: float, Displ: [], A1: float) -> float:
+
+    B_index = a.data_name.index('B')
+    h_index = a.data_name.index('2hA')
+
+    B = float(a.data_value[B_index])*float(a.data_dimension[B_index])  # sirka vzorku
+    h = float(a.data_value[h_index])*float(a.data_dimension[h_index])  # vyska vzorku
+
+    C = (Displ/Force)
+
+    defor_energ = (3 * Force**2 * C**(2/3))/(2*A1*B*h)
 
     return defor_energ
 
@@ -323,7 +352,8 @@ def compute_compliance_MBT(Force: [], Displ: [], Del_length_R: [], Time_R_ar: []
 
     delta = -b2/a1
 
-    x_axis = np.linspace(delta*5/4, abs(delta*5/4), 200)
+    #x_axis = np.linspace(delta*5/4, abs(delta*5/4), 200)
+    x_axis = np.linspace(delta*5/4, max(a), 200)
     y_fitted_long = a1 * x_axis + b2
 
     fig = plt.figure()
@@ -339,7 +369,7 @@ def compute_compliance_MBT(Force: [], Displ: [], Del_length_R: [], Time_R_ar: []
     path_fig_png = path + "_MBT" + ".png"
     path_fig_eps = path + "_MBT" + ".eps"
 
-    fig.savefig(path_fig_eps)
+#    fig.savefig(path_fig_eps)
     fig.savefig(path_fig_png)
 
     
@@ -348,7 +378,117 @@ def compute_compliance_MBT(Force: [], Displ: [], Del_length_R: [], Time_R_ar: []
 
 # ----------------------------------------
 
+def compute_compliance_CC(Force: [], Displ: [], Del_length_R: [], Time_R_ar: [], Time_exp_ar: [], path: str) -> float:
+    # Computing delta for R-Curves using Compliance Calibration (CC) 
 
+    # Retrieving Name of TAR file from path_TAR
+    name = path.split('/')
+    name = name[len(name)-1]
+    name = name[0:len(name)-4]
+
+    num_iter_r = found_indexes(Time_exp_ar, Time_R_ar)
+
+    defor_energ = np.zeros(len(num_iter_r))
+    
+    log_a = []
+    log_C = []
+
+    for counter, j in enumerate(num_iter_r):
+        log_C.append(np.log(Displ[j] / Force[j]))
+        log_a.append(np.log(Del_length_R[counter]))
+
+    coefficients = np.polyfit(log_a, log_C, 1)
+    yFitted = np.polyval(coefficients, log_a)
+
+    delta_y = abs(yFitted[1] - yFitted[0])
+    delta_x = abs(log_a[1] - log_a[0])
+    n = delta_y / delta_x
+
+    a1 = coefficients[0]
+    b2 = coefficients[1]
+
+    delta = -b2/a1
+
+    #x_axis = np.linspace(delta*5/4, abs(delta*5/4), 200)
+    x_axis = np.linspace(min(log_a), max(log_a), 200)
+    y_fitted_long = a1 * x_axis + b2
+
+    fig = plt.figure()
+    plt.plot(x_axis, y_fitted_long)
+    plt.plot(log_a, log_C, 'o')
+
+    plt.legend(["PolyFit", "Experiments"])
+    plt.ylabel('$/log C$ [N/m]', fontsize=12)
+    plt.xlabel('$/log a$ [m]', fontsize=12)
+    plt.title('CC - Compliance', fontsize=14)
+    plt.grid(True)
+
+    path_fig_png = path + "_CC" + ".png"
+    path_fig_eps = path + "_CC" + ".eps"
+
+#    fig.savefig(path_fig_eps)
+    fig.savefig(path_fig_png)
+
+    
+
+    return n 
+
+# ----------------------------------------
+
+def compute_compliance_MCC(Force: [], Displ: [], Del_length_R: [], Time_R_ar: [], Time_exp_ar: [], path: str,h: float) -> float:
+    # Computing delta for R-Curves using Modified Compliance Calibration (MCC) 
+
+    # Retrieving Name of TAR file from path_TAR
+    name = path.split('/')
+    name = name[len(name)-1]
+    name = name[0:len(name)-4]
+
+    num_iter_r = found_indexes(Time_exp_ar, Time_R_ar)
+
+    defor_energ = np.zeros(len(num_iter_r))
+    
+    a_div_h = []
+    C_pow_1_3 = []
+
+    for counter, j in enumerate(num_iter_r):
+        a_div_h.append(Del_length_R[counter]/h)
+        C_pow_1_3.append((Displ[j] / Force[j])**(1/3))
+
+    coefficients = np.polyfit(C_pow_1_3, a_div_h, 1)
+    yFitted = np.polyval(coefficients, C_pow_1_3)
+
+    delta_y = abs(yFitted[1] - yFitted[0])
+    delta_x = abs(C_pow_1_3[1] - C_pow_1_3[0])
+    n = delta_y / delta_x
+
+    a1 = coefficients[0]
+    b2 = coefficients[1]
+
+    delta = -b2/a1
+
+    #x_axis = np.linspace(delta*5/4, abs(delta*5/4), 200)
+    x_axis = np.linspace(min(C_pow_1_3), max(C_pow_1_3), 200)
+    y_fitted_long = a1 * x_axis + b2
+
+    fig = plt.figure()
+    plt.plot(x_axis, y_fitted_long)
+    plt.plot(C_pow_1_3, a_div_h, 'o')
+
+    plt.legend(["PolyFit", "Experiments"])
+    plt.ylabel('$a/h$ [N/m]', fontsize=12)
+    plt.xlabel('$C^{1/3}$ [m]', fontsize=12)
+    plt.title('MCC - Compliance', fontsize=14)
+    plt.grid(True)
+
+    path_fig_png = path + "_MCC" + ".png"
+    path_fig_eps = path + "_MCC" + ".eps"
+
+#    fig.savefig(path_fig_eps)
+    fig.savefig(path_fig_png)
+
+    return n
+
+# ----------------------------------------
 def vypocet_energie_ENF(F, a, epsilon_n):
 
     B = float(a.data_value[B_index]) * \
@@ -426,17 +566,10 @@ def vypocet_energie_MixI_II(F, a):
 # ----------------------------------------
 # ----------------------------------------
 
-def Average(data):
-
-    return sum(data)/len(data)
-
-
-# ----------------------------------------
-
 def Variacni_koef(F):
 
     var_x = 0
-    avrg_F = Average(F)
+    avrg_F = np.average(F)
 
     for i in F:
         var_x += (1/len(F))*(i-avrg_F)*(i-avrg_F)
@@ -450,7 +583,13 @@ def Variacni_koef(F):
 # ----------------------------------------
 
 
-def create_R_cuve(Time_exp_ar, Time_R_ar, Del_length_R, Force, a, epsilon, delam_a0_R, time_delay_R, path: str):
+def create_R_cuve(Time_exp_ar, Time_R_ar, Del_length_R, Force, a, epsilon, delam_a0_R, time_delay_R, path: str, method: str):
+    # parameter method has possible string values 'MBT', 'CC', 'MCC'
+
+    print(f'Evaluating DCB Fracture energiee with {method} model')
+
+    h_index = a.data_name.index('2hA')
+    h = float(a.data_value[h_index])*float(a.data_dimension[h_index])  # specimen thickness 
 
     # Retrieving Name of TAR file from path_TAR
     name = path.split('/')
@@ -460,38 +599,47 @@ def create_R_cuve(Time_exp_ar, Time_R_ar, Del_length_R, Force, a, epsilon, delam
     DCB_G_I = []
     delam_set = []
 
-    print(delam_a0_R)
+    # add intitial delamination to values
+    Del_length_R_compl = [float(delam_a0_R) + float(x) for x in Del_length_R]
 
-    delta_MBT = compute_compliance_MBT(Force, epsilon, Del_length_R, Time_R_ar, Time_exp_ar, path)
-    print('delta is: ', delta_MBT)
+    # compute the compliance for one sample
+    if method == "MBT":
+        delta_MBT = compute_compliance_MBT(Force, epsilon, Del_length_R_compl, Time_R_ar, Time_exp_ar, path)
+        print('delta MBT is: ', delta_MBT)
+    elif method == "CC":
+        delta_CC = compute_compliance_CC(Force, epsilon, Del_length_R_compl, Time_R_ar, Time_exp_ar, path)
+        print('delta CC is: ', delta_CC)
+    elif method == "MCC":
+        delta_MCC = compute_compliance_MCC(Force, epsilon, Del_length_R_compl, Time_R_ar, Time_exp_ar, path, h)
+        print('delta MCC is: ', delta_MCC)
 
-    if str(delam_a0_R) != 'nan':
+    # loop thorough every delamination length value
+    for i in range(0, len(Time_R_ar)):
 
-        for i in range(0, len(Time_R_ar)):
+        time_del1 = float(Time_R_ar.iloc[i]) - float(time_delay_R)
+        delta = float(Time_exp_ar[6]) - float(Time_exp_ar[5])
+        # cyklus najde index casu v datech trhacky
+        for j in range(0, len(Time_exp_ar)):
+            if float(time_del1) < float(Time_exp_ar[j]) + delta/2 and float(time_del1) > float(Time_exp_ar[j]) - delta/2:
+                break
 
-            if str(Del_length_R[i]) != 'nan':
+        force_del = Force[j]
+        epsilon_del = epsilon[j]
+        Delam_length = Del_length_R_compl[i]
+        
+        logger.info("index " + str(j) + " force " + str(force_del) + " epsilon " + str(epsilon_del) + " time " + str(time_del1))
 
-                time_del1 = float(Time_R_ar[i]) - float(time_delay_R)
-                delta = float(Time_exp_ar[6]) - float(Time_exp_ar[5])
-                # cyklus najde index casu v datech trhacky
-                for j in range(0, len(Time_exp_ar)):
-                    if float(time_del1) < float(Time_exp_ar[j]) + delta/2 and float(time_del1) > float(Time_exp_ar[j]) - delta/2:
-                        break
+        if method == "MBT":
+            G_I = vypocet_energie_DCB_R_MBT(force_del, a, Delam_length, epsilon_del, delta_MBT)
+        elif method == "CC":
+            G_I = vypocet_energie_DCB_R_CC(force_del, a, Delam_length, epsilon_del, delta_CC)
+        elif method == "MCC":
+            G_I = vypocet_energie_DCB_R_MCC(force_del, a, Delam_length, epsilon_del, delta_MCC)
 
-                force_del = Force[j]
-                epsilon_del = epsilon[j]
-                
-                logger.info("index " + str(j) + " force " + str(force_del) + " epsilon " + str(epsilon_del) + " time " + str(time_del1))
+        DCB_G_I.append(G_I)
 
-                Del_length_R_compl = float(delam_a0_R) + float(Del_length_R[i])
 
-                DCB_G_I.append(vypocet_energie_DCB_R(force_del, a, epsilon, Del_length_R_compl, epsilon_del, delta_MBT))
-# =============================================================================
-#                 DCB_G_I.append(vypocet_energie_ENF_R(force_del, a, epsilon, Del_length_R_compl, epsilon_del))
-# =============================================================================
-                delam_set.append(Del_length_R_compl)
-
-    return DCB_G_I, delam_set
+    return DCB_G_I, Del_length_R_compl
 
 # ----------------------------------------
 

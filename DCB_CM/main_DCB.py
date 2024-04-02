@@ -139,6 +139,10 @@ time_R_all = R_sheet.iloc[6, 7:]
 delam_a0_R = R_sheet.iloc[7:, 6]
 time_delay_R = R_sheet.iloc[7:, 2]
 
+# Convering from mm to m
+dimensions = 1e-3 
+delam_a0_R = [float(x)*dimensions for x in delam_a0_R]
+
 #
 F = []
 epsilon = []
@@ -153,7 +157,9 @@ cons_1 = 0
 marker_set = []
 line_set = []
 color_set = []
-DCB_G_I_set = []
+DCB_G_I_set_MBT = []
+DCB_G_I_set_CC = []
+DCB_G_I_set_MCC = []
 delam_set_array = []
 
 for cd in range(0, len(a)):
@@ -170,13 +176,11 @@ for cd in range(0, len(a)):
             if not (delam_R[counter] == 0.0 and delam_R[counter+1] == 0.0):
                 break
         delam_R = delam_R[counter:len(delam_R)]
-        time_R = time_R[counter:len(delam_R)]
+        time_R = time_R[counter:len(time_R)]
 
         # Convering from mm to m
-        dimensions = 1e-3 
         delam_R = [x*dimensions for x in delam_R]
 
-        print("delam_R", delam_R)
 
         # path where to access data and store data
         name_TAR_str = a[cd].data_value[0]
@@ -201,8 +205,10 @@ for cd in range(0, len(a)):
         if "DCB" in a[cd].data_value[0]:
             Energ_crit = vypocet_energie_DCB(
                 F_np[cons_1], a[cd], epsilon[cons_1])
-            DCB_G_I, delam_set = create_R_cuve(
-                time[cons_1], time_R, delam_R, F_np[cons_1], a[cd], epsilon[cons_1], delam_a0_R.iloc[cd], time_delay_R.iloc[cd], path_fig)
+            DCB_G_I_MBT, delam_set = create_R_cuve(time[cons_1], time_R, delam_R, F_np[cons_1], a[cd], epsilon[cons_1], delam_a0_R[cd], time_delay_R.iloc[cd], path_fig, "MBT")
+            DCB_G_I_CC, delam_set = create_R_cuve(time[cons_1], time_R, delam_R, F_np[cons_1], a[cd], epsilon[cons_1], delam_a0_R[cd], time_delay_R.iloc[cd], path_fig, "CC")
+            DCB_G_I_MCC, delam_set = create_R_cuve(time[cons_1], time_R, delam_R, F_np[cons_1], a[cd], epsilon[cons_1], delam_a0_R[cd], time_delay_R.iloc[cd], path_fig, "MCC")
+
         elif "ENF" in a[cd].data_value[0]:
             Energ_crit = vypocet_energie_ENF(
                 F_np[cons_1], a[cd], epsilon[cons_1])
@@ -214,29 +220,34 @@ for cd in range(0, len(a)):
         Energ_crit_array.append(Energ_crit)
         F_max.append(max(F_np[cons_1]))
 
-        DCB_G_I_set.append(DCB_G_I)
+        DCB_G_I_set_MBT.append(DCB_G_I_MBT)
+        DCB_G_I_set_CC.append(DCB_G_I_CC)
+        DCB_G_I_set_MCC.append(DCB_G_I_MCC)
         delam_set_array.append(delam_set)
 
         cons_1 += 1
 
 
-avrg_F_max = Average(F_max)
+avrg_F_max = np.average(F_max)
 print("Prumer maximalnich sil: " + list + " " + str(avrg_F_max))
 
-avrg_energ_crit = Average(Energ_crit_array)
+avrg_energ_crit = np.average(Energ_crit_array)
 print("Prumer krit energie: " + list + " " + str(avrg_energ_crit))
 
 var_koef_F_max = Variacni_koef(Energ_crit_array)
 print("Variacni koeficient pro " + list + " " + str(var_koef_F_max))
 
 path_fig = id_directory_fig + separator + 'graf_' + list
-path_fig_R = id_directory_fig + separator + 'graf_R_' + list
+path_fig_R_MBT = id_directory_fig + separator + 'MBT_graf_R_' + list
+path_fig_R_CC = id_directory_fig + separator + 'CC_graf_R_' + list
+path_fig_R_MCC = id_directory_fig + separator + 'MCC_graf_R_' + list
 
 graf_Feps(F, epsilon, name_TAR, color_set, marker_set, line_set, path_fig)
-graf_Feps_R_curves(DCB_G_I_set, delam_set_array, name_TAR, color_set, marker_set, line_set, path_fig_R)
 
+graf_Feps_R_curves(DCB_G_I_set_MBT, delam_set_array, name_TAR, color_set, marker_set, line_set, path_fig_R_MBT)
+graf_Feps_R_curves(DCB_G_I_set_CC, delam_set_array, name_TAR, color_set, marker_set, line_set, path_fig_R_CC)
+graf_Feps_R_curves(DCB_G_I_set_MCC, delam_set_array, name_TAR, color_set, marker_set, line_set, path_fig_R_MCC)
 
-print(a[1].data_value)
 
 # F_average, temp2 = value_TAR_avereged(F)
 # F_max = vypocet_energie(F_average)
