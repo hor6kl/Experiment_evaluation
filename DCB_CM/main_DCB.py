@@ -187,13 +187,18 @@ for cd in range(0, len(a)):
         path_TAR = id_directory_raw_data + separator + name_TAR_str + ".TRA"
         path_fig = id_directory_fig + separator + name_TAR_str + ".TRA"
 
-        F1, epsilon1, name_TAR1, epsilon_n1, time1 = value_TAR(path_TAR)
-        
+        # reads values from .TAR file 
+        drop_lines = 7
+        column_data = value_TAR(path_TAR, drop_lines)
+        # Output should be manualy changed according columns in TAR file
+        F1 = column_data[0]
+        time1 = column_data[1]
+        epsilon1 = column_data[2]
+
         # Creating list of list.
         F.append(F1)
         epsilon.append(epsilon1)
-        name_TAR.append(name_TAR1)
-        epsilon_n.append(epsilon_n1)
+        name_TAR.append(name_TAR_str)
         time.append(time1)
         color_set.append(a[cd].data_value[color_index])
         line_set.append(a[cd].data_value[line_index])
@@ -202,20 +207,12 @@ for cd in range(0, len(a)):
 #        F_np = np.array(F)
         F_np = F
 
-        if "DCB" in a[cd].data_value[0]:
-            Energ_crit = vypocet_energie_DCB(
-                F_np[cons_1], a[cd], epsilon[cons_1])
-            DCB_G_I_MBT, delam_set = create_R_cuve(time[cons_1], time_R, delam_R, F_np[cons_1], a[cd], epsilon[cons_1], delam_a0_R[cd], time_delay_R.iloc[cd], path_fig, "MBT")
-            DCB_G_I_CC, delam_set = create_R_cuve(time[cons_1], time_R, delam_R, F_np[cons_1], a[cd], epsilon[cons_1], delam_a0_R[cd], time_delay_R.iloc[cd], path_fig, "CC")
-            DCB_G_I_MCC, delam_set = create_R_cuve(time[cons_1], time_R, delam_R, F_np[cons_1], a[cd], epsilon[cons_1], delam_a0_R[cd], time_delay_R.iloc[cd], path_fig, "MCC")
+        Energ_crit = vypocet_energie_DCB(
+            F_np[cons_1], a[cd], epsilon[cons_1])
+        DCB_G_I_MBT, delam_set = create_R_cuve(time[cons_1], time_R, delam_R, F_np[cons_1], a[cd], epsilon[cons_1], delam_a0_R[cd], time_delay_R.iloc[cd], path_fig, "MBT")
+        DCB_G_I_CC, delam_set = create_R_cuve(time[cons_1], time_R, delam_R, F_np[cons_1], a[cd], epsilon[cons_1], delam_a0_R[cd], time_delay_R.iloc[cd], path_fig, "CC")
+        DCB_G_I_MCC, delam_set = create_R_cuve(time[cons_1], time_R, delam_R, F_np[cons_1], a[cd], epsilon[cons_1], delam_a0_R[cd], time_delay_R.iloc[cd], path_fig, "MCC")
 
-        elif "ENF" in a[cd].data_value[0]:
-            Energ_crit = vypocet_energie_ENF(
-                F_np[cons_1], a[cd], epsilon[cons_1])
-            DCB_G_I, delam_set = create_R_cuve(
-                time[cons_1], time_R, delam_R, F_np[cons_1], a[cd], epsilon[cons_1], delam_a0_R.iloc[cd], time_delay_R.iloc[cd])
-        elif "MIX" in a[cd].data_value[0]:
-            Energ_crit = vypocet_energie_MixI_II(F_np[cons_1], a[cd])
         print("crit energie pro " + name_TAR[cons_1] + " " + str(Energ_crit))
         Energ_crit_array.append(Energ_crit)
         F_max.append(max(F_np[cons_1]))
@@ -244,9 +241,10 @@ path_fig_R_MCC = id_directory_fig + separator + 'MCC_graf_R_' + list
 
 graf_Feps(F, epsilon, name_TAR, color_set, marker_set, line_set, path_fig)
 
-graf_Feps_R_curves(DCB_G_I_set_MBT, delam_set_array, name_TAR, color_set, marker_set, line_set, path_fig_R_MBT)
-graf_Feps_R_curves(DCB_G_I_set_CC, delam_set_array, name_TAR, color_set, marker_set, line_set, path_fig_R_CC)
-graf_Feps_R_curves(DCB_G_I_set_MCC, delam_set_array, name_TAR, color_set, marker_set, line_set, path_fig_R_MCC)
+Range = [30,70,150]
+graf_Feps_R_curves(DCB_G_I_set_MBT, delam_set_array, name_TAR, color_set, marker_set, line_set, path_fig_R_MBT, Range)
+graf_Feps_R_curves(DCB_G_I_set_CC, delam_set_array, name_TAR, color_set, marker_set, line_set, path_fig_R_CC, Range)
+graf_Feps_R_curves(DCB_G_I_set_MCC, delam_set_array, name_TAR, color_set, marker_set, line_set, path_fig_R_MCC, Range)
 
 
 # F_average, temp2 = value_TAR_avereged(F)

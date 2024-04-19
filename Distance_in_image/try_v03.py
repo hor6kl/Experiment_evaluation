@@ -398,14 +398,14 @@ if __name__=="__main__":
     ####
     path_photo = '/home/horakl/School/FAV/Doktorske_studium/Prace_projekty/Mechanical_testing/Python_files/Distance_in_image/Input_folder'
 
-    output_path = '/home/horakl/School/FAV/Doktorske_studium/Prace_projekty/Mechanical_testing/Python_files/Distance_in_image'
+    output_path = '/home/horakl/School/FAV/Doktorske_studium/Prace_projekty/Mechanical_testing/Python_files/Distance_in_image/Output_folder'
     # scale value
     scale_value = 10 # in mm
 
 
-
     # Get the list of all files and directories
     dir_list = os.listdir(path_photo)
+    dir_list = sorted(dir_list)
     print(dir_list)
 
 
