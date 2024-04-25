@@ -10,8 +10,7 @@ def create_subfolder(folder_path: str, subfolder_name: str) -> None:
     # Create the subfolder inside the main folder
     subfolder_path = os.path.join(folder_path, subfolder_name)
     if not os.path.exists(subfolder_path):
-        #os.makedirs(subfolder_path)
-        print(f"Main folder: '{folder_path}' does not exist!")
+        os.makedirs(subfolder_path)
 
     print(f"Subfolder '{subfolder_name}' created successfully inside '{folder_path}'!")
 
@@ -21,10 +20,14 @@ if len(sys.argv) != 2:
     print("Usage: python subfolder_structure.py <folder_path>")
     sys.exit(1)
 
+
 # Get the folder path name from the command line arguments
 folder_path = sys.argv[1]
 subfolder_name = ['python', 'photo', 'raw_data', ['fig', 'fig_check'], 'data']
 
+if not os.path.exists(folder_path):
+    print(f"Main folder: '{folder_path}' does not exist!")
+    sys.exit(1)
 
 # Loop to iterate through every subfolder name
 for subfolder in subfolder_name:
@@ -34,7 +37,7 @@ for subfolder in subfolder_name:
        for counter, subsub in enumerate(subfolder):
            # creates sub folder on first postition in sub list
             if counter == 0:
-                subfolder_path = folder_path + "//" + subsub
+                subfolder_path = os.path.join(folder_path, subsub)
                 create_subfolder(folder_path, subsub)
             else:
                 create_subfolder(subfolder_path, subsub)
