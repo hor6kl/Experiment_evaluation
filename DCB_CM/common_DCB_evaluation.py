@@ -767,14 +767,16 @@ class Evaluate_Tensile():
 
         return strain
 
-    def find_close_value_index(self, lst, x, range_val):
-    # Find the index of a value in the list that is within a small range of x.
+    def find_close_value_index(self, lst, x, range_val = None):
+    # Find the index of a value in the list that is within a small range (range_val) of x.
         for i, y in enumerate(lst):
             if abs(x - y) <= range_val:
                 return i
+        print(f"Index was not found! Check your input.")
+
         return -1
 
-    def Evaluate_Young_modulus(self) -> float:
+    def Evaluate_Young_modulus(self, strain_arg = None) -> float:
     #Funciton computes Young modulus from stress strain curve
         
         # These are strain limits where young modulus should be evaluated according to ISO 527_1
@@ -782,14 +784,32 @@ class Evaluate_Tensile():
         strain_lim_2 = 0.0025
 
         stress = self.Calculate_stress()
-        strain = self.Calculate_strain()
 
-        # Range value to find index
-        delta = abs(strain[round(len(strain)/10)] - strain[round(len(strain)/10)-1])/2
+        # strain_arg was added to support direct pass of strain from UTM
+        # The strain from UTM was displacement functionality was left in code
+        if strain_arg == None:
+            strain = self.Calculate_strain()
+        else:
+            strain = strain_arg
+
+        print(f"Maximum stress: {max(stress):.4e}")
+        print(f"Maximum strain: {max(strain):.5f}")
+
+        #print(f"strain: {strain}")
+
+        # Range value to find index is done in two iterations to consider different strain steps during experiment
+        delta_in = round(len(strain)/3)
+        delta = abs(strain[delta_in] - strain[delta_in-1])*2
+        index_aprox_1 = self.find_close_value_index(strain, strain_lim_1, delta)
+        index_aprox_2 = self.find_close_value_index(strain, strain_lim_1, delta)
+        delta_1 = abs(strain[index_aprox_1] - strain[index_aprox_1-1])
+        delta_2 = abs(strain[index_aprox_2] - strain[index_aprox_2-1])
 
         # Finds index of limits
-        index_lim_1 = self.find_close_value_index(strain, strain_lim_1, delta)
-        index_lim_2 = self.find_close_value_index(strain, strain_lim_2, delta)
+        index_lim_1 = self.find_close_value_index(strain, strain_lim_1, delta_1)
+        index_lim_2 = self.find_close_value_index(strain, strain_lim_2, delta_2)
+        if index_lim_2 == -1:
+            print(f" index_lim_2 was not found and range for Young moduls evaluation is from: {index_lim_1} to end of list")
 
         # Modification of dimension to correspond with evaluation limits
         stress = stress[index_lim_1:index_lim_2]
@@ -798,7 +818,7 @@ class Evaluate_Tensile():
         # This coefficient will not be the same with polyfit. for same resaults domain=[]
         c0, c1 = np.polynomial.polynomial.Polynomial.fit(strain,stress, 1, domain=[])
 
-        print(f"Young modulues E = {c1}")
+        print(f"Young modulues E = {c1:.4e}")
     
         delta = -c0/c1
 
@@ -853,7 +873,7 @@ class Evaluate_Tensile():
 
         poisson = c1_x/c1_y
 
-        print(f"Poisson ratio nu = {poisson}")
+        print(f"Poisson ratio nu = {poisson:.5f}")
         x_axis = np.linspace(min(force_y), max(force_y), 200)
         y_fitted_long_x = c0_x + x_axis*c1_x
         y_fitted_long_y = c0_y + x_axis*c1_y
