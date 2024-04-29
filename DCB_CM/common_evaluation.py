@@ -44,7 +44,13 @@ class Common_functions():
 
 # --------------------
 
-def average_on_range(X: [float], Y: [float], range_min: float):
+def avg_range_list(X: [[float]], Y: [[float]], range_min: float) -> [float]:
+    # Function computes average value on range from range_min to end of the array for list of list
+    avg_value_list = [average_on_range(x, y, range_min) for (x, y) in zip(X, Y)]
+
+    return avg_value_list
+
+def average_on_range(X: [float], Y: [float], range_min: float) -> float:
     # Function computes average value on range from range_min to end of the array
 
     # finds index in array X which corresponds to value larger than range_min:
@@ -338,8 +344,56 @@ def import_delam_length_values(id_directory_python: str, dimensions: float) -> [
 
 
 
+class Statistical_evaluation():
+    def __init__(self, X: [float]):
+        self.X = X
+        
 
+    def Max_norm_residual(self) -> float:
+        MNR = max( (x-np.mean(self.X))/np.std(self.X, ddof=1) for x in self.X)
+        return MNR
 
+    def Crit_value(self) -> float:
+        # Function calculate Critical value  
+        n = len(self.X)
+        alpha = 0.05
+        t = 1- alpha/2/n
+
+        CV = (n-1)/np.sqrt(n) * np.sqrt(t**2/(n-2+t**2))
+        return CV
+
+    def Check_for_outliers(self):
+        # Function checks for outliers (values too much above/below average
+        CV = self.Crit_value()
+        MNR = self.Max_norm_residual()
+
+        if MNR < CV:
+            print("MNR is smaller than CV. No outlier was detected.")
+        else:
+            print("MNR is larger than CV. Outlier was detected.")
+            values = [abs(x-np.mean(self.X)) for x in self.X]
+            max_value = max(values)
+            index_max = values.index(max(values))
+
+            print(f"Sample on position: {index_max} with value: {self.X[index_max]} is detected as outlier.")
+
+    def B_basis_normal(self) -> [float]:
+        # Function computes B-basis for the normal distribution
+        # Function returns list where lower and upper B_basis is passed
+
+        k_b = [None, 20.581, 6.157, 4.163, 3.408, 3.007, 2.756, 2.583, 2.454, 2.355, 2.276, 2.211, 2.156, 2.109, 2.069]
+        B_low = np.mean(self.X) - k_b[len(self.X)]*np.std(self.X, ddof=1)
+        B_up = np.mean(self.X) + k_b[len(self.X)]*np.std(self.X, ddof=1)
+        return [B_low, B_up]
+
+    def A_basis_normal(self) -> [float]:
+        # Function computes A-basis for the normal distribution
+        # Function returns list where lower and upper A-basis is passed
+
+        k_a = [None, 37.094, 10.553, 7.042, 5.741, 5.062, 4.642, 4.354, 4.143, 3.981, 3.852, 3.747, 3.659, 3.585, 3.520]
+        A_low = np.mean(self.X) - k_a[len(self.X)]*np.std(self.X, ddof=1)
+        A_up = np.mean(self.X) + k_a[len(self.X)]*np.std(self.X, ddof=1)
+        return [A_low, A_up]
 
 
 

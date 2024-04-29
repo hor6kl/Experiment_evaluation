@@ -126,6 +126,10 @@ graph_DCB_R_curves(DCB_G_I_set_CC, delam_set_array, name_TAR, color_set, marker_
 graph_DCB_R_curves(DCB_G_I_set_MCC, delam_set_array, name_TAR, color_set, marker_set, line_set, path_fig_R_MCC, range_min)
 
 
+# ----------------------------------------
+# Evaluation
+# ----------------------------------------
+
 # constant average value from range_x1
 avg_x_MBT, avg_y_MBT = average_curve(delam_set_array, DCB_G_I_set_MBT, range_min)
 print(f"Average value was computed on range: {avg_x_MBT} ")
@@ -136,6 +140,17 @@ print(f"Average value for CC: {avg_y_CC[0]} ")
 
 avg_x_MCC, avg_y_MCC = average_curve(delam_set_array, DCB_G_I_set_MCC, range_min)
 print(f"Average value for MCC: {avg_y_MCC[0]} ")
+
+avg_G_list = avg_range_list(delam_set_array, DCB_G_I_set_MBT, range_min)
+print(f"Average values for single sample: {avg_G_list}")
+print(f"Average value from single samples: {np.mean(avg_G_list)}")
+
+stat_eval = Statistical_evaluation(avg_G_list)
+stat_eval.Check_for_outliers()
+B = stat_eval.B_basis_normal()
+
+print(f"B-basis: {B}")
+
 # ----------------------------------------
 
 
