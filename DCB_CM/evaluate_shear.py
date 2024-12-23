@@ -1,13 +1,10 @@
 import matplotlib.pyplot as plt
-import pandas as pd
 import numpy as np
-import os
-import math
 
 from common_evaluation import *
 
 
-class Evaluate_Tensile:
+class Evaluate_Shear:
     def __init__(
         self,
         force: [],
@@ -36,12 +33,12 @@ class Evaluate_Tensile:
 
     def return_surface(self) -> float:
         Height_values = self.Return_dimensions("height")
-        Width_values = self.Return_dimensions("width")
+        Thick_values = self.Return_dimensions("thickness")
 
         height = np.mean(Height_values)
-        width = np.mean(Width_values)
+        thick = np.mean(Thick_values)
 
-        return height * width
+        return height * thick
 
     def Calculate_stress(self) -> []:
         # Function returns stress computed from surface and force
@@ -54,11 +51,11 @@ class Evaluate_Tensile:
     def Calculate_strain(self) -> []:
         # Function returns strain computed from gauge length and displacement
 
-        Length_values = self.Return_dimensions("length")
+        Thick_values = self.Return_dimensions("thickness")
 
-        length = np.mean(Length_values)
+        thick = np.mean(Thick_values)
 
-        strain = [(d) / (length) for d in self.displacement]
+        strain = [(d) / (thick) for d in self.displacement]
 
         return strain
 
@@ -73,7 +70,7 @@ class Evaluate_Tensile:
 
         # These are strain limits where young modulus should be evaluated according to ISO 527_1
         strain_lim_1 = 0.0005
-        strain_lim_2 = 0.0015
+        strain_lim_2 = 0.0025
 
         stress = self.Calculate_stress()
 
@@ -86,8 +83,6 @@ class Evaluate_Tensile:
 
         print(f"Maximum stress: {max(stress):.4e}")
         print(f"Maximum strain: {max(strain):.5f}")
-
-        # print(f"strain: {strain}")
 
         # Finds index of limits
         index_lim_1 = find_close_value_index(strain, strain_lim_1)
@@ -104,7 +99,7 @@ class Evaluate_Tensile:
         # This coefficient will not be the same with polyfit. for same resaults domain=[]
         c0, c1 = np.polynomial.polynomial.Polynomial.fit(strain, stress, 1, domain=[])
 
-        print(f"Young modulues E = {c1:.4e}")
+        print(f"Shear modulus G = {c1:.4e}")
 
         delta = -c0 / c1
 
@@ -126,7 +121,6 @@ class Evaluate_Tensile:
         )
 
         fig.savefig(path_fig_png)
-        plt.close()
 
         return c1
 
@@ -135,18 +129,26 @@ class Evaluate_Tensile:
 
         # These are strain limits where young modulus should be evaluated according to ISO 527_1
         strain_lim_1 = 0.0005
-        strain_lim_2 = 0.0015
+        strain_lim_2 = 0.0025
 
         strain_y = self.Calculate_strain()
 
         Width_values = self.Return_dimensions("width")
-        # width = min(Width_values)
-        width = np.mean(Width_values)
-        strain_x = [(d) / (width) for d in delta_x]
+        length = min(Width_values)
+        strain_x = [(d) / (length) for d in delta_x]
+
+        # Range value to find index
+        delta = (
+            abs(
+                strain_y[round(len(strain_y) / 10)]
+                - strain_y[round(len(strain_y) / 10) - 1]
+            )
+            / 2
+        )
 
         # Finds index of limits
-        index_lim_1 = find_close_value_index(strain_y, strain_lim_1)
-        index_lim_2 = find_close_value_index(strain_y, strain_lim_2)
+        index_lim_1 = self.find_close_value_index(strain_y, strain_lim_1, delta)
+        index_lim_2 = self.find_close_value_index(strain_y, strain_lim_2, delta)
 
         # Modification of dimension to correspond with evaluation limits
         force_y = self.force[index_lim_1:index_lim_2]
@@ -185,7 +187,6 @@ class Evaluate_Tensile:
         )
 
         fig.savefig(path_fig_png)
-        plt.close()
 
         return poisson
 
@@ -210,12 +211,11 @@ def graph_stress_strain_curves(
             color=color_set[cons],
             marker=marker_set[cons],
             linestyle=line_set[cons],
-            markevery=None,
         )
 
     avg_x, avg_y = average_curve(X, Y)
 
-    #   plt.plot(avg_x, avg_y, color="green")
+    #    plt.plot(avg_x, avg_y, color="green")
 
     plt.xlabel(r"Strain $\epsilon$ [-]")
     plt.ylabel(r"Stress $\sigma$ [Pa]")
@@ -228,3 +228,5 @@ def graph_stress_strain_curves(
 
     fig.savefig(path_fig_eps)
     fig.savefig(path_fig_png)
+
+    plt.close()

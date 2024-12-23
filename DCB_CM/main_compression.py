@@ -1,4 +1,3 @@
-# import load_workbook
 import os
 
 # Importing common python functions and classes
@@ -7,7 +6,7 @@ import sys
 sys.path.append(
     "/home/horakl/School/FAV/Doktorske_studium/Prace_projekty/Mechanical_testing/Python_files/DCB_CM"
 )
-from evaluate_tensile import *
+from evaluate_compression import *
 from common_evaluation import *
 
 # ----------------------------------------
@@ -27,11 +26,10 @@ spec_data, ex_list = import_excel_values(id_directory_python)
 # ----------------------------------------
 
 # Names in excel
-width_names = ["W1", "W2", "W3"]
-height_names = ["H1", "H2", "H3"]
-length_names = ["lj"]
+width_names = ["W1", "W2"]
+height_names = ["H1"]
 
-names_param = {"height": height_names, "width": width_names, "length": length_names}
+names_param = {"height": height_names, "width": width_names}
 
 color_index = spec_data[0].data_name.index("color")
 marker_index = spec_data[0].data_name.index("marker")
@@ -40,7 +38,6 @@ line_index = spec_data[0].data_name.index("line")
 # ----------------------------------------
 F = []
 deltaY = []
-deltaX = []
 time = []
 
 name_TAR = []
@@ -53,11 +50,7 @@ color_set = []
 stress = []
 strain = []
 
-E_list = []
-nu_list = []
-
 max_stress_list = []
-max_strain_list = []
 
 for specimen in spec_data:
     if specimen.data_value[1] == 1 or specimen.data_value[1] == str(1):
@@ -68,18 +61,18 @@ for specimen in spec_data:
         path_fig_check = os.path.join(id_directory_fig_check, name_TAR_str)
 
         # reads values from .TAR file
-        drop_lines = 6
+        drop_lines = 4
         column_data = value_TAR(path_TAR, drop_lines)
         # Output should be manualy changed according columns in TAR file
         Force_i = column_data[0]
         time_i = column_data[1]
         deltaY_i = column_data[2]
-        # if statement to added without poisson
-        no_data = ["ARALDIT_TS_RT_10", "ARALDIT_TS_RT_11"]
-        if name_TAR_str in no_data:
-            pass
-        else:
-            deltaX_i = column_data[5]
+
+        trim_index = trim_data(Force_i, 1)
+        deltaY_i = trim_displacement(deltaY_i[trim_index : len(deltaY_i)])
+
+        Force_i = Force_i[trim_index : len(Force_i)]
+        time_i = time_i[trim_index : len(time_i)]
 
         # Creating list of list.
         F.append(Force_i)
@@ -95,17 +88,12 @@ for specimen in spec_data:
         Eval_tensile = Evaluate_Tensile(
             Force_i, deltaY_i, specimen, names_param, path_fig_check
         )
-        E_list.append(Eval_tensile.Evaluate_Young_modulus())
-        if name_TAR_str in no_data:
-            pass
-        else:
-            nu_list.append(Eval_tensile.Evaluate_Poisson(deltaX_i))
+        # Eval_tensile.Evaluate_Young_modulus()
 
         stress.append(Eval_tensile.Calculate_stress())
         strain.append(Eval_tensile.Calculate_strain())
 
-        max_stress_list.append(Eval_tensile.return_max_stress())
-        max_strain_list.append(Eval_tensile.return_max_strain())
+        max_stress_list.append(Eval_tensile.return_max_stress([0.0003, 0.0008]))
 
 path_fig = os.path.join(id_directory_fig, ("graf_" + ex_list))
 path_fig_ss = os.path.join(id_directory_fig, ("graf_SS_" + ex_list))
@@ -120,15 +108,5 @@ graph_stress_strain_curves(
 # ----------------------------------------
 # Evaluation
 # ----------------------------------------
-stat_eval = Statistical_evaluation(E_list)
-stat_eval.Check_all()
-
-stat_eval = Statistical_evaluation(nu_list)
-stat_eval.Check_all()
-
 stat_eval = Statistical_evaluation(max_stress_list)
 stat_eval.Check_all()
-
-stat_eval = Statistical_evaluation(max_strain_list)
-stat_eval.Check_all()
-# ----------------------------------------

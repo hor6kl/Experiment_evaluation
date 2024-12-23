@@ -35,13 +35,11 @@ class Evaluate_Tensile:
         return values
 
     def return_surface(self) -> float:
-        Height_values = self.Return_dimensions("height")
-        Width_values = self.Return_dimensions("width")
 
-        height = np.mean(Height_values)
+        Width_values = self.Return_dimensions("width")
         width = np.mean(Width_values)
 
-        return height * width
+        return np.pi * width**2 / 4
 
     def Calculate_stress(self) -> []:
         # Function returns stress computed from surface and force
@@ -54,16 +52,24 @@ class Evaluate_Tensile:
     def Calculate_strain(self) -> []:
         # Function returns strain computed from gauge length and displacement
 
-        Length_values = self.Return_dimensions("length")
+        Height_values = self.Return_dimensions("height")
 
-        length = np.mean(Length_values)
+        height = min(Height_values)
 
-        strain = [(d) / (length) for d in self.displacement]
+        strain = [(d) / (height) for d in self.displacement]
 
         return strain
 
-    def return_max_stress(self) -> float:
-        return max(self.Calculate_stress())
+    def return_max_stress(self, range: [] = None) -> float:
+
+        min_index = find_close_value_index(self.displacement, range[0])
+        max_index = find_close_value_index(self.displacement, range[1])
+        stress = self.Calculate_stress()
+        if min_index == -1:
+            min_index = 0
+        max_stress = max(stress[min_index:max_index])
+
+        return max_stress
 
     def return_max_strain(self) -> float:
         return max(self.Calculate_strain())
@@ -73,7 +79,7 @@ class Evaluate_Tensile:
 
         # These are strain limits where young modulus should be evaluated according to ISO 527_1
         strain_lim_1 = 0.0005
-        strain_lim_2 = 0.0015
+        strain_lim_2 = 0.0025
 
         stress = self.Calculate_stress()
 
@@ -84,8 +90,10 @@ class Evaluate_Tensile:
         else:
             strain = strain_arg
 
-        print(f"Maximum stress: {max(stress):.4e}")
-        print(f"Maximum strain: {max(strain):.5f}")
+        #        min_index = find_close_value_index(self.displacement, 0.0000)
+        #        max_index = find_close_value_index(self.displacement, 0.0034)
+        #        max_stress = max(stress[min_index:max_index])
+        #        print(f"Maximum stress: {max_stress:.4e}")
 
         # print(f"strain: {strain}")
 
@@ -126,68 +134,8 @@ class Evaluate_Tensile:
         )
 
         fig.savefig(path_fig_png)
-        plt.close()
 
         return c1
-
-    def Evaluate_Poisson(self, delta_x: []) -> float:
-        # Funciton computes poisson ratio from biaxial strain in x and y direction
-
-        # These are strain limits where young modulus should be evaluated according to ISO 527_1
-        strain_lim_1 = 0.0005
-        strain_lim_2 = 0.0015
-
-        strain_y = self.Calculate_strain()
-
-        Width_values = self.Return_dimensions("width")
-        # width = min(Width_values)
-        width = np.mean(Width_values)
-        strain_x = [(d) / (width) for d in delta_x]
-
-        # Finds index of limits
-        index_lim_1 = find_close_value_index(strain_y, strain_lim_1)
-        index_lim_2 = find_close_value_index(strain_y, strain_lim_2)
-
-        # Modification of dimension to correspond with evaluation limits
-        force_y = self.force[index_lim_1:index_lim_2]
-        strain_y = strain_y[index_lim_1:index_lim_2]
-        strain_x = strain_x[index_lim_1:index_lim_2]
-
-        # This coefficient will not be the same with polyfit. for same results domain=[]
-        c0_x, c1_x = np.polynomial.polynomial.Polynomial.fit(
-            force_y, strain_x, 1, domain=[]
-        )
-        c0_y, c1_y = np.polynomial.polynomial.Polynomial.fit(
-            force_y, strain_y, 1, domain=[]
-        )
-
-        poisson = c1_x / c1_y
-
-        print(f"Poisson ratio nu = {poisson:.5f}")
-        x_axis = np.linspace(min(force_y), max(force_y), 200)
-        y_fitted_long_x = c0_x + x_axis * c1_x
-        y_fitted_long_y = c0_y + x_axis * c1_y
-
-        fig = plt.figure()
-        plt.plot(x_axis, y_fitted_long_x)
-        plt.plot(x_axis, y_fitted_long_y)
-        plt.plot(force_y, strain_x, "o")
-        plt.plot(force_y, strain_y, "x")
-
-        plt.legend(["PolyFit", "Experiments"])
-        plt.ylabel("$Force$ [N/m]", fontsize=12)
-        plt.xlabel("$Strain$ [m]", fontsize=12)
-        plt.title("Poisson", fontsize=14)
-        plt.grid(True)
-
-        path_fig_png = (
-            self.path_fig + self.spec_data.data_value[0] + "_nu_polyfit" + ".png"
-        )
-
-        fig.savefig(path_fig_png)
-        plt.close()
-
-        return poisson
 
 
 # ----------------------------------------
@@ -210,21 +158,22 @@ def graph_stress_strain_curves(
             color=color_set[cons],
             marker=marker_set[cons],
             linestyle=line_set[cons],
-            markevery=None,
         )
 
     avg_x, avg_y = average_curve(X, Y)
 
-    #   plt.plot(avg_x, avg_y, color="green")
+    plt.plot(avg_x, avg_y, color="green")
 
     plt.xlabel(r"Strain $\epsilon$ [-]")
     plt.ylabel(r"Stress $\sigma$ [Pa]")
 
     plt.legend(name_TAR)
-    plt.grid()
+    plt.grid
 
     path_fig_png = path_fig + ".png"
     path_fig_eps = path_fig + ".eps"
 
     fig.savefig(path_fig_eps)
     fig.savefig(path_fig_png)
+
+    plt.close
